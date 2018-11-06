@@ -450,8 +450,6 @@ public:
        int  maxDraw; //how far back in history to draw
         
         std::vector<ci::vec2> points;
-        std::vector<float> jerk;
-        std::vector<float> snap;
         std::vector<float>  alpha;
         
     public:
@@ -501,12 +499,14 @@ public:
         std::vector<ci::osc::Message> getOSC()
         {
             std::vector<ci::osc::Message> msgs;
-            for (int i = 0; i < data1.size(); i++)
+            for (int i = 0; i < points.size(); i++)
             {
                 ci::osc::Message m;
-                m.setAddress(  data1[i]->str()  ); //"/mydata/shit/x"
-                m.append( data1[i]->getData(MocapDeviceData::DataIndices::INDEX) );
-                msgs.push_back(  m  );
+                m.setAddress(  "/mocap/"  ); //"/mydata/shit/x"
+                m.append( points[i].x );
+                m.append( points[i].y );
+                //m.append( data1[i]->getData(MocapDeviceData::DataIndices::INDEX) );
+                msgs.push_back( m  );
             }
             return msgs;
         };

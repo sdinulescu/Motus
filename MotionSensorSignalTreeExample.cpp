@@ -325,8 +325,10 @@ void MotionSensorSignalTreeExample::update()
     for(int i=0; i<mEntities.size(); i++)
     {
         std::vector<osc::Message> msgs = mEntities[i]->getOSC();
+        cout << msgs.size() << endl;
         for(int i=0; i<msgs.size(); i++)
         {
+            cout << "sending" << endl;
             mSender.send(msgs[i]);
         }
     }

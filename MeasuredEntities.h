@@ -104,7 +104,9 @@ public:
         std::vector<ci::osc::Message> msgs;
         for (int i = 0 ; i < hand.size(); i++)
         {
-            hand[i]->getOSC();
+            for (int j = 0; j < hand[i]->getOSC().size(); j++) {
+                msgs.push_back( hand[i]->getOSC()[i] );
+            }
         }
         return msgs;
     };
