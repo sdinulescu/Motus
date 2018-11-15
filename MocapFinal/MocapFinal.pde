@@ -29,9 +29,24 @@ String DEST_HOST = "127.0.0.1";
 
 float angle = 0; 
 float xAccel = 0;
-float yAccel = 0;
 float prevXAccel = 0;
+float yAccel = 0;
 float prevYAccel = 0;
+float der1x =0;
+float prevDer1x = 0;
+float der1y = 0; 
+float prevDer1y = 0;
+float der2x =0;
+float prevDer2x = 0;
+float der2y = 0; 
+float prevDer2y = 0;
+
+float xPos = 0;
+float prevXPos = 0;
+float yPos = 0;
+float prevYPos = 0;
+float maxMotion = 0;
+float prevMaxMotion = 0;
 
 
 void setup() {
@@ -52,20 +67,61 @@ void setup() {
 
 void oscEvent(OscMessage msg) { //checks for incoming osc messages
   String addr = msg.addrPattern();
-  println("message!");
-  if ( addr.contains("mocap") ) {
-    //set previous values?
-    prevXAccel = xAccel;
-    prevYAccel = yAccel;
-    
+  //set previous values?
+  prevXAccel = xAccel;
+  prevYAccel = yAccel;
+  prevDer1x = der1x;
+  prevDer1y = der1y;
+  prevDer2x = der2x;
+  prevDer2y = der2y;
+  
+  prevXPos = xPos;
+  prevYPos = yPos;
+  prevMaxMotion = maxMotion;
+  if ( addr.contains("mocap/points") ) {
     //set current values
-    xAccel = msg.get(0).floatValue() / 100;
-    yAccel = msg.get(1).floatValue() / 100;
-    println("### received an osc message: " + addr + " " + xAccel + " " + yAccel);
+    xAccel = msg.get(0).floatValue();
+    yAccel = msg.get(1).floatValue();
+  } else if ( addr.contains("mocap/derivative") ) {
+    der1x = msg.get(0).floatValue();
+    der1y = msg.get(1).floatValue();
+  } else if ( addr.contains("mocap/square") ) {
+    maxMotion = msg.get(0).floatValue();
+    xPos = msg.get(1).floatValue();
+    yPos = msg.get(2).floatValue();
   }
+  
+  //println("### received an osc message: " + addr + " " + xAccel + " " + yAccel + " " + der1x + " " + der1y + " " + der2x + " " + der2y);
+  //println(xPos + " " + yPos +  " " + maxMotion);
 }
 
 void draw() {
-  //mapping incoming blob values
-  line(prevXAccel, prevYAccel, xAccel, yAccel);
+  ////mapping incoming blob values
+  //xAccel = map(xAccel, 0, 1, 0, width);
+  //prevXAccel = map(prevXAccel, 0, 1, 0, width);
+  //yAccel = map(yAccel, 0, 1, 0, height);
+  //prevYAccel = map(prevYAccel, 0, 1, 0, height);
+  der1x = map(der1x, 0, 1000, 0, width/2);
+  //prevDer1x = map(prevDer1x, 0, 1, 0, width);
+  der1y = map(der1y, 0, 1000, 0, height/2);
+  //prevDer1y = map(prevDer1y, 0, 1, 0, height);
+    xPos = map(xPos, 0, 640, 0, width/2);
+  prevXPos = map(prevXPos, 0, 640, 0, width/2);
+  yPos = map(yPos, 0, 480, 0, height/2);
+  prevYPos = map(prevYPos, 0, 480, 0, height/2);
+  maxMotion = map(maxMotion, 0, 10000, 0, height/2);
+  prevMaxMotion = map(prevMaxMotion, 0, 10000, 0, height/2);
+  
+  
+  float colRed = map(maxMotion, 0, 10000, 0, 255);
+  float colGreen = map(maxMotion, 0, 10000, 0, 255);
+  float colBlue = map(maxMotion, 0, 10000, 0, 255);
+  float colAlpha = map(maxMotion, 0, 1000, 0, 255);
+  
+  translate(maxMotion, maxMotion);
+  rotate(angle);
+
+  fill(colRed, colGreen, colBlue, colAlpha);
+  bezier(0, 0, xPos, yPos, xAccel, yAccel, der1x, der1y);
+  angle++;
 }

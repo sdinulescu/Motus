@@ -115,9 +115,9 @@ public:
     //update all the ugens we own. all of them that need updating..
     virtual void update(float seconds = 0)
     {
-        for(int i=0; i<hand.size(); i++)
+        for(int i=0; i<hand.size(); i++) {
             hand[i]->update(seconds);
-        
+        }
         der1->update(seconds);
         der2->update(seconds);
     };

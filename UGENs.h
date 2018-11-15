@@ -362,6 +362,14 @@ public:
         std::vector<ci::osc::Message> getOSC()
         {
             std::vector<ci::osc::Message> msgs;
+            for (int i = 0; i < outdata1.size(); i++)
+            {
+                ci::osc::Message m;
+                m.setAddress(  "/mocap/points"  ); //"/mydata/shit/x"
+                m.append( (float)outdata1[i]->getData(2) ); //x pos
+                m.append( (float)outdata1[i]->getData(3) ); //y pos
+                msgs.push_back( m  );
+            }
             return msgs;
         };
     };
@@ -438,6 +446,14 @@ public:
         virtual std::vector<ci::osc::Message> getOSC()
         {
             std::vector<ci::osc::Message> msgs;
+            for (int i = 0; i < outdata1.size(); i++)
+            {
+                ci::osc::Message m;
+                m.setAddress(  "/mocap/derivative/"  ); //"/mydata/shit/x"
+                m.append( (float)outdata1[i]->getData(2) ); //x pos
+                m.append( (float)outdata1[i]->getData(3) ); //y pos
+                msgs.push_back( m  );
+            }
             return msgs;
         };
     
@@ -499,15 +515,15 @@ public:
         std::vector<ci::osc::Message> getOSC()
         {
             std::vector<ci::osc::Message> msgs;
-            for (int i = 0; i < points.size(); i++)
-            {
-                ci::osc::Message m;
-                m.setAddress(  "/mocap/"  ); //"/mydata/shit/x"
-                m.append( points[i].x );
-                m.append( points[i].y );
-                //m.append( data1[i]->getData(MocapDeviceData::DataIndices::INDEX) );
-                msgs.push_back( m  );
-            }
+//            for (int i = 0; i < points.size(); i++)
+//            {
+//                ci::osc::Message m;
+//                m.setAddress(  "/mocap/"  ); //"/mydata/shit/x"
+//                m.append( points[i].x );
+//                m.append( points[i].y );
+//                //m.append( data1[i]->getData(MocapDeviceData::DataIndices::INDEX) );
+//                msgs.push_back( m  );
+//            }
             return msgs;
         };
 

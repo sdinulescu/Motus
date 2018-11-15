@@ -112,6 +112,7 @@ class MotionSensorSignalTreeExample : public App {
     cv::Mat frameDifferencing(cv::Mat frame);
     void frameDifference();
     void updateFrameDiff();
+    void sendSquareOSC(string address, float maxSquareMotion, float maxSquareX, float maxSquareY );
 };
 
 MotionSensorSignalTreeExample::MotionSensorSignalTreeExample() : mSender(LOCALPORT, DESTHOST, DESTPORT), mReceiver( LOCALPORT2 )
@@ -303,6 +304,21 @@ void MotionSensorSignalTreeExample::updateFrameDiff()
     
     if (mFrameDiff.data) { squareDiff.countPixels(mFrameDiff); } //count the pixels for frame differencing
     
+    sendSquareOSC( "/mocap/square", squareDiff.getMotionValue(), squareDiff.getMaxXValue(), squareDiff.getMaxYValue() );
+    
+}
+
+void MotionSensorSignalTreeExample::sendSquareOSC( string address, float maxSquareMotion, float maxSquareX, float maxSquareY ) //sends Osc messages containing square values
+{
+    osc::Message msg;
+    msg.setAddress(address); //sets address of the message
+    msg.append(maxSquareMotion); //adds a parameter to the message
+    msg.append(maxSquareX);
+    msg.append(maxSquareY);
+    
+    //cout << "maxMotion: " << maxSquareMotion << " maxX: " << maxSquareY << " maxY: " << maxSquareY << endl;
+    
+    mSender.send(msg);
 }
 
 //update entities and ugens and send OSC, if relevant
@@ -325,16 +341,15 @@ void MotionSensorSignalTreeExample::update()
     for(int i=0; i<mEntities.size(); i++)
     {
         std::vector<osc::Message> msgs = mEntities[i]->getOSC();
-        cout << msgs.size() << endl;
         for(int i=0; i<msgs.size(); i++)
         {
-            cout << "sending" << endl;
             mSender.send(msgs[i]);
         }
     }
     
     //framedifferencing
     updateFrameDiff();
+    
 
 }
 
