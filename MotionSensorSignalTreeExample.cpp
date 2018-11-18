@@ -356,17 +356,17 @@ void MotionSensorSignalTreeExample::update()
 //draw the entities
 void MotionSensorSignalTreeExample::draw()
 {
-    gl::clear( Color( 1, 1, 1 ) );
-    
-    //draw frame differencing
-    //gl::draw(mTexture);
-    squareDiff.displaySquares();
-    
-    //draw wiimote stuff
-    for(int i=0; i<mEntities.size(); i++)
-    {
-        mEntities[i]->draw();
-    }
+//    gl::clear( Color( 1, 1, 1 ) );
+//
+//    //draw frame differencing
+//    //gl::draw(mTexture);
+//    squareDiff.displaySquares();
+//
+//    //draw wiimote stuff
+//    for(int i=0; i<mEntities.size(); i++)
+//    {
+//        mEntities[i]->draw();
+//    }
  
 }
 
