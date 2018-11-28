@@ -55,6 +55,9 @@ TriOsc tri;
 TriOsc tri2;
 Env env;
 Env env2;
+Delay delay;
+Reverb reverb;
+AudioIn in;
 
 int note = 0;
 
@@ -64,7 +67,9 @@ void setup() {
   fullScreen();
   frameRate(20);
   //background(50, 50, 150);
-  background(20);
+  //background(20);
+  //background(255);
+  background(0xF5, 0xEF, 0xED);
   /* start oscP5, listening for incoming messages at destination port */
   oscP5 = new OscP5(this, DEST_PORT);
   
@@ -73,6 +78,9 @@ void setup() {
   tri2 = new TriOsc(this);
   env = new Env(this);
   env2 = new Env(this);
+  delay = new Delay(this);
+  reverb = new Reverb(this);
+   in = new AudioIn(this, 0);
 
   /* myRemoteLocation is a NetAddress. a NetAddress takes 2 parameters,
    * an ip address and a port number. myRemoteLocation is used as parameter in
@@ -82,10 +90,13 @@ void setup() {
    * send messages back to this sketch.
    */
    
-   file = new SoundFile(this, "music.wav");
-   file.amp(0.7);
-   file.play();
-   file.loop();
+   file = new SoundFile(this, "music2.wav");
+
+   //file.loop();
+   
+  in.play();
+   
+
 }
 
 void oscEvent(OscMessage msg) { //checks for incoming osc messages
@@ -103,28 +114,23 @@ void oscEvent(OscMessage msg) { //checks for incoming osc messages
   prevMaxMotion = maxMotion;
   
   //for some reason this stops sometimes because it receives something null?
-  //if (frameCount % 5 == 0 ) {
     if ( addr.contains("mocap/points") ) {
       //set current values
-      xAccel = msg.get(0).floatValue();
-      yAccel = msg.get(1).floatValue();
+        xAccel = msg.get(0).floatValue();
+        yAccel = msg.get(1).floatValue();
     } else if ( addr.contains("mocap/derivative") ) {
-      der1x = msg.get(0).floatValue();
-      der1y = msg.get(1).floatValue();
+        der1x = msg.get(0).floatValue();
+        der1y = msg.get(1).floatValue();
     } else if ( addr.contains("mocap/square") ) {
-      maxMotion = msg.get(0).floatValue();
-      xPos = msg.get(1).floatValue();
-      yPos = msg.get(2).floatValue();
+        maxMotion = msg.get(0).floatValue();
+        xPos = msg.get(1).floatValue();
+        yPos = msg.get(2).floatValue();
     }
-  //}
 }
 
 void handleTri() {
   //map values
-  float mappedX = map(xPos, 0, 640, 0, 1);
-  float mappedY = map(yPos, 0, 480, 0, 1);
   float midiX = map(xPos, 0, 640, 49, 84);
-  float midiY = map(yPos, 0, 480, 49, 84);
   
   float mappedMotion = map(maxMotion, 0, 90000, 0, 0.007);
   
@@ -158,10 +164,9 @@ void handleViz() {
   float colGreen = map(yAccel, 0, 1, 0, 255);
   float colBlue = map(dist, 0, 80, 0, 255);
   float colAlpha = map(maxMotion, 0, 300000, 0, 255);
-  println(colRed + " " + colGreen + " " + colBlue);
+  //println(colRed + " " + colGreen + " " + colBlue);
   //println("maxM: " + maxMotion + " colAlpha: " + colAlpha);
   
-  //pushMatrix();
   translate(xP, yP);
   rotate(angle);
 
@@ -171,7 +176,6 @@ void handleViz() {
   noStroke();
   fill(255, 20);
   ellipse(xA, yA, d1x, d1y);
-  //popMatrix();
   
   //println(xP + " " + yP + " " + xA + " " + yA + " " + d1x + " " + d1y);
 
@@ -179,6 +183,19 @@ void handleViz() {
 }
 
 void draw() {
+  float xSound = map(xPos, 0, 640, 0, 1);
+  float ySound = map(yPos, 0, 480, 0, 1);
   handleTri();
-  handleViz();
+  if (xPos != prevXPos || yPos != prevYPos || maxMotion != prevMaxMotion || der1x != prevDer1x || der1y != prevDer1y) {
+    handleViz();
+  }
+  //file.amp(xSound);
+  if (der1x > 50) {
+    if (!file.isPlaying()) {
+      file.play();
+    } else { delay.process(in, 0.5); }
+       
+  } 
+    println(der1x + " " + der1y);
+
 }
