@@ -14,6 +14,7 @@
 #include "opencv2/imgproc.hpp"
 #include "opencv2/videoio.hpp"
 #include <opencv2/video.hpp>
+#include "opencv2/features2d.hpp" //new include for this project
 
 
 #include "cinder/app/App.h"
@@ -33,6 +34,21 @@
 #include "UGENs.h"
 #include "MeasuredEntities.h"
 #include "SquareGenerator.hpp"
+
+
+//orbbec stuff
+#include <cstdio>
+#include <chrono>
+#include <iostream>
+#include <iomanip>
+#include "Astra.h"
+
+#include "Osc.h" //add to send OSC
+
+#include "CinderOpenCV.h"
+
+#include "Blob.h"
+
 
 #define LOCALPORT 8886
 #define LOCALPORT2 8887
@@ -55,6 +71,9 @@
 #define MAX_NUM_OF_WIIMOTES 6 //limitation of bluetooth class 2
 #define PHONE_ID "7" //this assumes only one phone using Syntien or some such -- can modify if you have more...
 
+#define SAMPLE_WINDOW_MOD 300
+#define MAX_FEATURES 300
+
 using namespace ci;
 using namespace ci::app;
 using namespace std;
@@ -65,9 +84,10 @@ using protocol = asio::ip::udp;
 //This class demonstrates a 'hello, world' for the signal processing tree paradigm for motion capture
 //Receives wiimote data, puts an averaging filter on it, then draws the data
 //Also, w/o signal processing paradigm, this program has the functions to draw a phone but not implemented currently
-class MotionSensorSignalTreeExample : public App {
+class MotusApp : public App {
   public:
-    MotionSensorSignalTreeExample();
+    MotusApp();
+    ~MotusApp();
     
 	void setup() override;
 //    void mouseDown( MouseEvent event ) override;
@@ -108,20 +128,29 @@ class MotionSensorSignalTreeExample : public App {
     std::vector<CRCPMotionAnalysis::Entity *> mEntities;  //who are we measuring? change name when specifics are known.
     
     float seconds;
+    bool newFrame;
     
     cv::Mat frameDifferencing(cv::Mat frame);
     void frameDifference();
     void updateFrameDiff();
     void sendSquareOSC(string address, float maxSquareMotion, float maxSquareX, float maxSquareY );
+    
+    //Stuff to read the astra stream
+    SampleFrameListener listener;
+    astra::StreamSet streamSet;
+    astra::StreamReader reader;
 };
 
-MotionSensorSignalTreeExample::MotionSensorSignalTreeExample() : mSender(LOCALPORT, DESTHOST, DESTPORT), mReceiver( LOCALPORT2 )
+MotusApp::MotusApp() : mSender(LOCALPORT, DESTHOST, DESTPORT), mReceiver( LOCALPORT2 )
 {
     
 }
+MotusApp::~MotusApp() {
+    astra::terminate();
+}
 
 //outdated vestige
-void MotionSensorSignalTreeExample::sendOSC(std::string addr, float posX, float posY, float vel, float acc)
+void MotusApp::sendOSC(std::string addr, float posX, float posY, float vel, float acc)
 {
     osc::Message msg;
     msg.setAddress(addr);
@@ -135,13 +164,13 @@ void MotionSensorSignalTreeExample::sendOSC(std::string addr, float posX, float 
 }
 
 //this has not been implemented into signal tree paradigm yet. ah well. TODO: implement as such
-void MotionSensorSignalTreeExample::updatePhoneValues(const osc::Message &message)
+void MotusApp::updatePhoneValues(const osc::Message &message)
 {
     addPhoneAndWiiData(message, PHONE_ID);
 }
 
 //gets data from osc message then adds wiimote data to sensors
-void MotionSensorSignalTreeExample::addPhoneAndWiiData(const osc::Message &message, std::string _id)
+void MotusApp::addPhoneAndWiiData(const osc::Message &message, std::string _id)
 {
     CRCPMotionAnalysis::MocapDeviceData *sensorData = new CRCPMotionAnalysis::MocapDeviceData;
     std::string dID = _id ;
@@ -160,7 +189,7 @@ void MotionSensorSignalTreeExample::addPhoneAndWiiData(const osc::Message &messa
 }
 
 //return sensor with id & or create one w/detected id then return that one
-CRCPMotionAnalysis::SensorData *MotionSensorSignalTreeExample::getSensor( std::string _id, int which )
+CRCPMotionAnalysis::SensorData *MotusApp::getSensor( std::string _id, int which )
 {
 
         bool found = false;
@@ -192,7 +221,7 @@ CRCPMotionAnalysis::SensorData *MotionSensorSignalTreeExample::getSensor( std::s
 
 
 //finds the id of the wiimote then adds the wiidata to ugens
-void MotionSensorSignalTreeExample::updateWiiValues(const osc::Message &message)
+void MotusApp::updateWiiValues(const osc::Message &message)
 {
     //get which wii
     std::string addr = message.getAddress();
@@ -203,18 +232,35 @@ void MotionSensorSignalTreeExample::updateWiiValues(const osc::Message &message)
 }
 
 //set up osc
-void MotionSensorSignalTreeExample::setup()
+void MotusApp::setup()
 {
+    //initialize astra
+    astra::initialize();
+    reader = streamSet.create_reader();
+    reader.stream<astra::PointStream>().start();
+    reader.stream<astra::DepthStream>().start();
+    reader.add_listener(listener);
+    std::cout << "depthStream -- hFov: "
+    << reader.stream<astra::DepthStream>().hFov()
+    << " vFov: "
+    << reader.stream<astra::DepthStream>().vFov()
+    << std::endl;
+    
+    //makes sure this is a valid stream
+    std::cout << "valid:" << streamSet.is_valid() <<std:: endl;
+    
+   //square code
     squareDiff.divideScreen(NUMBER_OF_SQUARES);
     
-    try
-    {
-        mCapture = Capture::create(640, 480); //creates the CamCapture using default camera (webcam)
-        mCapture->start(); //start the CamCapture (starts the webcam)
-    } catch (ci::Exception &e)
-    {
-        CI_LOG_EXCEPTION("Failed to init capture", e); //if it fails, it will log on the console
-    }
+    //webcam code
+//    try
+//    {
+//        mCapture = Capture::create(640, 480); //creates the CamCapture using default camera (webcam)
+//        mCapture->start(); //start the CamCapture (starts the webcam)
+//    } catch (ci::Exception &e)
+//    {
+//        CI_LOG_EXCEPTION("Failed to init capture", e); //if it fails, it will log on the console
+//    }
     
     try{
         mSender.bind();
@@ -265,12 +311,12 @@ void MotionSensorSignalTreeExample::setup()
 
 
 
-void MotionSensorSignalTreeExample::keyDown( KeyEvent event )
+void MotusApp::keyDown( KeyEvent event )
 {
 
 }
 
-cv::Mat MotionSensorSignalTreeExample::frameDifferencing(cv::Mat frame) //frame differencing with currFrame
+cv::Mat MotusApp::frameDifferencing(cv::Mat frame) //frame differencing with currFrame
 {
     cv::Mat input, outputImg;
     cv::GaussianBlur(mCurrFrame, input, cv::Size(5, 5), 0);
@@ -279,14 +325,14 @@ cv::Mat MotionSensorSignalTreeExample::frameDifferencing(cv::Mat frame) //frame 
     return outputImg;
 }
 
-void MotionSensorSignalTreeExample::frameDifference() //for differencing with prev frame
+void MotusApp::frameDifference() //for differencing with prev frame
 {
     if(!mSurface || !mCurrFrame.data) return ;
     if (mPrevFrame.data) { mFrameDiff = frameDifferencing(mPrevFrame); }
     mPrevFrame = mCurrFrame;
 }
 
-void MotionSensorSignalTreeExample::updateFrameDiff()
+void MotusApp::updateFrameDiff()
 {
     if (mCapture && mCapture->checkNewFrame()) //is there a new image?
     {
@@ -308,7 +354,7 @@ void MotionSensorSignalTreeExample::updateFrameDiff()
     
 }
 
-void MotionSensorSignalTreeExample::sendSquareOSC( string address, float maxSquareMotion, float maxSquareX, float maxSquareY ) //sends Osc messages containing square values
+void MotusApp::sendSquareOSC( string address, float maxSquareMotion, float maxSquareX, float maxSquareY ) //sends Osc messages containing square values
 {
     osc::Message msg;
     msg.setAddress(address); //sets address of the message
@@ -322,9 +368,34 @@ void MotionSensorSignalTreeExample::sendSquareOSC( string address, float maxSqua
 }
 
 //update entities and ugens and send OSC, if relevant
-void MotionSensorSignalTreeExample::update()
+void MotusApp::update()
 {
+    
+    astra_status_t status = astra_temp_update();
+    
+    //checks if there is a new frame, if so, updates the surface
+    newFrame = listener.newFrame();
+    if(newFrame)
+    {
+        mSurface = listener.getNewFrame();
+        //        if(saver)
+        //            saver->update(mSurface);
+    } else return;
+    
     seconds = getElapsedSeconds(); //clock the time update is called to sync incoming messages
+    
+    mCurrFrame.copyTo(mPrevFrame);
+    
+    //computer vision mocap code
+    mCurrFrame = toOcv(Channel(*mSurface));
+    
+    //resize curFrame to windowHeight & width
+    cv::resize(mCurrFrame, mCurrFrame, cv::Size( getWindowWidth(), getWindowHeight()  ));
+    cv::blur(mCurrFrame, mCurrFrame, cv::Size(9,9));
+    
+//    if(mPrevFrame.data){
+//        mDiffFrame = frameDifference();
+//    }
 
     //update sensors
     for(int i=0; i<mSensors.size(); i++)
@@ -354,20 +425,27 @@ void MotionSensorSignalTreeExample::update()
 }
 
 //draw the entities
-void MotionSensorSignalTreeExample::draw()
+void MotusApp::draw()
 {
-//    gl::clear( Color( 1, 1, 1 ) );
-//
-//    //draw frame differencing
-//    //gl::draw(mTexture);
-//    squareDiff.displaySquares();
+    gl::clear( Color( 1, 1, 1 ) );
+
+    //draw frame differencing
+    //gl::draw(mTexture);
+    squareDiff.displaySquares();
 //
 //    //draw wiimote stuff
 //    for(int i=0; i<mEntities.size(); i++)
 //    {
 //        mEntities[i]->draw();
 //    }
+    
+    //draws the camera surface
+    if( mSurface )
+    {
+        //    note: the size of the surface/frame is about 25% of the window frame, so Rectf tells it to draw so that it fills the screen
+        gl::draw( gl::Texture::create( *mSurface ), ci::Rectf(0, 0, getWindowWidth(), getWindowHeight()) );
+    }
  
 }
 
-CINDER_APP( MotionSensorSignalTreeExample, RendererGl )
+CINDER_APP( MotusApp, RendererGl )
