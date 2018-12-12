@@ -34,6 +34,7 @@
 #include "UGENs.h"
 #include "MeasuredEntities.h"
 #include "SquareGenerator.hpp"
+#include "MovieSaver.h"
 
 
 //orbbec stuff
@@ -139,6 +140,9 @@ class MotusApp : public App {
     SampleFrameListener listener;
     astra::StreamSet streamSet;
     astra::StreamReader reader;
+    
+    //to save our capture
+    MovieSaver *saver = NULL;
 };
 
 MotusApp::MotusApp() : mSender(LOCALPORT, DESTHOST, DESTPORT), mReceiver( LOCALPORT2 )
@@ -240,6 +244,7 @@ void MotusApp::setup()
     reader.stream<astra::PointStream>().start();
     reader.stream<astra::DepthStream>().start();
     reader.add_listener(listener);
+    
     std::cout << "depthStream -- hFov: "
     << reader.stream<astra::DepthStream>().hFov()
     << " vFov: "
@@ -248,6 +253,10 @@ void MotusApp::setup()
     
     //makes sure this is a valid stream
     std::cout << "valid:" << streamSet.is_valid() <<std:: endl;
+    
+    //initialize saver
+        fs::path saveFilePath = getSaveFilePath();
+        saver = new MovieSaver(saveFilePath);
     
    //square code
     squareDiff.divideScreen(NUMBER_OF_SQUARES);
@@ -378,8 +387,8 @@ void MotusApp::update()
     if(newFrame)
     {
         mSurface = listener.getNewFrame();
-        //        if(saver)
-        //            saver->update(mSurface);
+                if(saver)
+                    saver->update(mSurface);
     } else return;
     
     seconds = getElapsedSeconds(); //clock the time update is called to sync incoming messages

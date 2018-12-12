@@ -36,10 +36,6 @@ Float der1x = 0.;
 Float prevDer1x = 0.;
 Float der1y = 0.; 
 Float prevDer1y = 0.;
-Float der2x = 0.;
-Float prevDer2x = 0.;
-Float der2y = 0.; 
-Float prevDer2y = 0.;
 Float dist = 0.;
 
 Float xPos = 0.;
@@ -55,32 +51,33 @@ TriOsc tri;
 TriOsc tri2;
 Env env;
 Env env2;
+//For drum sound file
 Delay delay;
-AudioIn in;
+Reverb reverb;
+//AudioIn in;
 SoundFile file;
-
+//used to map midi notes
 int note = 0;
-
-
 
 void setup() {
   fullScreen();
   frameRate(20);
-  //background(50, 50, 150);
-  //background(20);
-  //background(255);
-  //background(0);
   background(0xF5, 0xEF, 0xED);
   /* start oscP5, listening for incoming messages at destination port */
   oscP5 = new OscP5(this, DEST_PORT);
   
-   //set up tri oscillator and envelope
+   //set up tri oscillator, envelope, delay, reverb, and audio input stream
   tri = new TriOsc(this);
   tri2 = new TriOsc(this);
   env = new Env(this);
   env2 = new Env(this);
   delay = new Delay(this);
-  in = new AudioIn(this, 0);
+  reverb = new Reverb(this);
+  //in = new AudioIn(this, 0);
+  
+  //set up sound file
+  file = new SoundFile(this, "finalmusic.wav");
+  //in.play();
 
   /* myRemoteLocation is a NetAddress. a NetAddress takes 2 parameters,
    * an ip address and a port number. myRemoteLocation is used as parameter in
@@ -90,8 +87,7 @@ void setup() {
    * send messages back to this sketch.
    */
    
-   file = new SoundFile(this, "finalmusic.wav");
-   in.play();
+
 }
 
 void oscEvent(OscMessage msg) { //checks for incoming osc messages
@@ -101,9 +97,6 @@ void oscEvent(OscMessage msg) { //checks for incoming osc messages
   prevYAccel = yAccel;
   prevDer1x = der1x;
   prevDer1y = der1y;
-  prevDer2x = der2x;
-  prevDer2y = der2y;
-
   prevXPos = xPos;
   prevYPos = yPos;
   prevMaxMotion = maxMotion;
@@ -121,15 +114,15 @@ void oscEvent(OscMessage msg) { //checks for incoming osc messages
         xPos = msg.get(1).floatValue();
         yPos = msg.get(2).floatValue();
     }
-
-    
     //println("xp: " + xPos + " yp: " + yPos + " maxM: " + maxMotion + " der1x: " + der1x + " der1y: " + der1y + " xAccel: " + xAccel + " yAccel: " + yAccel);
 }
 
 void handleTri() {
   //map values
   Float midiX = map(xPos, 0, 640, 49, 84);
-  Float mappedMotion = map(maxMotion, 0, 90000, 0, 0.007);
+  Float mappedMotion = map(maxMotion, 0, 300000, 0, 0.05);
+  //Float xA = map(xAccel, 0, 10, 0, 1);
+  //Float yA = map(yAccel, 0, 10, 0, 1);
   if (midiX == null) {
     midiX = 0.;
   }
@@ -142,13 +135,16 @@ void handleTri() {
 
   //println(maxX);
   //"melody" tri oscillator that plays notes based on the max square motion that is passed in
+  //println(mappedMotion);
   tri.play( midiToFreq( (int)(float)midiX ), mappedMotion  ); //square X values change amplitude
-  env.play( tri, 0.5, 1, 1, 1 );
-  tri2.play( midiToFreq( (int)(float)midiX + 7 ), mappedMotion ); //square Y values change amplitude
-  env2.play( tri2, 0.5, 1, 1, 1 );
+  println("note1: " + midiToFreq( (int)(float)midiX ));
+  env.play( tri, 0.001, 0.5, xAccel, yAccel );
+  tri2.play( midiToFreq( (int)(float)midiX + 7), mappedMotion ); //square Y values change amplitude
+  println("note2: " + midiToFreq( (int)(float)midiX  + 7));
+  env2.play( tri2, 0.001, 0.5, xAccel, yAccel );
 }
 
-float midiToFreq(int note) { //translates to notes (from processing documentation)
+Float midiToFreq(int note) { //translates to freq (from processing documentation)
   return (pow(2, ((note-69)/12.0)))*440;
 }
 
@@ -185,27 +181,50 @@ void handleViz() {
   angle += der1x;
 }
 
-void draw() {
+void handleDrums() {
   Float xSound = map(xPos, 0, 640, 0, 1);
-  Float ySound = map(yPos, 0, 480, 0, 1);
+  Float ySound = map(der1y, 0, 100, 0, 1);
+  //dead code prevents null exception from sound library
   if (xSound == null) {
     xSound = 0.;
   }
-  
-  
-  handleTri();
-  if (xPos != prevXPos || yPos != prevYPos || maxMotion != prevMaxMotion || der1x != prevDer1x || der1y != prevDer1y) {
-    handleViz();
+  if (ySound == null) {
+    ySound = 0.;
   }
+  if (der1x == null) {
+    der1x = 0.;
+  }
+  if (der1y == null) {
+    der1y = 0.;
+  }
+  
   file.amp(xSound);
   if (der1x > 50) {
     if (!file.isPlaying()) {
       file.stop();
       file.play();
-    } else { delay.process(in, 0.2); }
-       
-  } 
-  
+      //in.play();
+    } else { 
+      //delay.process(in, 0.2);  
+    } 
+  }
+ 
   //println(der1x + " " + der1y);
+}
 
+void draw() {
+  if (frameCount <= 2400) {
+    //if at least one value is changing...
+     if (xPos != prevXPos || yPos != prevYPos || maxMotion != prevMaxMotion || der1x != prevDer1x || der1y != prevDer1y) {
+      handleTri();
+      handleViz();
+      handleDrums();
+     }
+  } else if (frameCount > 2400 && frameCount < 2500) {
+    //5 second delay where no sound is being processed, background is black
+    background(0);
+  } else if (frameCount >= 2500) {
+    exit();
+  }
+ 
 }
